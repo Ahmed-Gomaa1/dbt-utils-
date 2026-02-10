@@ -1,4 +1,4 @@
-name: 'surrogate_key_trim'
+name: 'dbt_surrogate_key_utils'
 version: '1.0.0'
 config-version: 2
 

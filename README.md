@@ -23,30 +23,30 @@ dbt deps
 
 ## Usage
 
-The package provides the `surrogate_key_trim.generate_surrogate_key` macro with the following signature:
+The package provides an enhanced version of `dbt_utils.generate_surrogate_key` macro with the following signature:
 
 ```sql
-{{ surrogate_key_trim.generate_surrogate_key(field_list, trim=false) }}
+{{ dbt_utils.generate_surrogate_key(field_list, trim_whitespace=false) }}
 ```
 
 ### Parameters
 
 - `field_list` (required): A list of fields to be included in the surrogate key
-- `trim` (optional, default: `false`): When set to `true`, trims leading and trailing whitespace from string fields before hashing. When `false`, preserves all whitespace in the input fields.
+- `trim_whitespace` (optional, default: `false`): When set to `true`, trims leading and trailing whitespace from string fields before hashing. When `false`, preserves all whitespace in the input fields.
 
 ### Example
 
 Basic usage (without trim):
 ```sql
-{{ surrogate_key_trim.generate_surrogate_key(['field_a', 'field_b']) }}
+{{ dbt_utils.generate_surrogate_key(['field_a', 'field_b']) }}
 ```
 
 Usage with trim enabled:
 ```sql
-{{ surrogate_key_trim.generate_surrogate_key(['field_a', 'field_b'], trim=true) }}
+{{ dbt_utils.generate_surrogate_key(['field_a', 'field_b'], trim_whitespace=true) }}
 ```
 
-When `trim=true`, the macro will remove leading and trailing whitespace from string fields before generating the hash. This is useful when dealing with data that may have inconsistent spacing but should be treated as identical values.
+When `trim_whitespace=true`, the macro will remove leading and trailing whitespace from string fields before generating the hash. This is useful when dealing with data that may have inconsistent spacing but should be treated as identical values.
 
 ## Why Use This Package?
 

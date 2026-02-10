@@ -1,8 +1,8 @@
-{%- macro generate_surrogate_key(field_list, trim=false) -%}
-    {{ return(adapter.dispatch('generate_surrogate_key', 'surrogate_key_trim')(field_list, trim)) }}
+{%- macro generate_surrogate_key(field_list, trim_whitespace=false) -%}
+    {{ return(adapter.dispatch('generate_surrogate_key', 'dbt_utils')(field_list, trim_whitespace)) }}
 {% endmacro %}
 
-{%- macro default__generate_surrogate_key(field_list, trim=false) -%}
+{%- macro default__generate_surrogate_key(field_list, trim_whitespace=false) -%}
 
 {%- if var('surrogate_key_treat_nulls_as_empty_strings', False) -%}
     {%- set default_null_value = "" -%}
@@ -14,7 +14,7 @@
 
 {%- for field in field_list -%}
 
-    {%- if trim -%}
+    {%- if trim_whitespace -%}
         {%- do fields.append(
             "coalesce(trim(cast(" ~ field ~ " as " ~ dbt.type_string() ~ ")), '" ~ default_null_value  ~"')"
         ) -%}
