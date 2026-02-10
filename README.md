@@ -260,8 +260,7 @@ The maintainers suggested publishing as a standalone package, which allows:
 ## Support
 
 - 🐛 [Open an issue](https://github.com/Ahmed-Gomaa1/dbt-surrogate-key-utils/issues)
-- 💬 dbt Slack: `@Ahmed-Gomaa1`
-- 📧 [Email](mailto:your-email@example.com)
+- 📧 [Email](mailto:3hmedgomaa2001@gmail.com)
 
 ---
 
