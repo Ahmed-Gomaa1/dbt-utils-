@@ -67,10 +67,65 @@ The package maintains full backward compatibility. When `trim=false` (the defaul
 This package respects the same configuration variable as the original:
 - `surrogate_key_treat_nulls_as_empty_strings`: When set to `true`, treats NULLs as empty strings instead of the default `_dbt_utils_surrogate_key_null_` string.
 
-## Contributing
+## Changelog
 
-Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
+### [1.0.0] - 2026-02-10
+
+#### Added
+- Enhanced `generate_surrogate_key` macro with `trim` parameter
+- When `trim=true`, the macro removes leading and trailing whitespace from string fields before hashing
+- Maintains backward compatibility with `trim=false` (default behavior)
+- Comprehensive documentation and usage examples
+- Example test models for validation
+
+#### Changed
+- Extended the original `dbt_utils.generate_surrogate_key` functionality
+- Preserved all original behavior when trim parameter is not used
+
+#### Fixed
+- Proper handling of whitespace variations in input data
+- Consistent hashing for logically identical values with different spacing
+
+## Example Test Model
+
+Here's an example of how to test the functionality:
+
+```sql
+-- Example test model demonstrating the use of the trim parameter
+-- Users can adapt this for their own testing
+
+with sample_data as (
+  
+  select 'John' as first_name, 'Doe' as last_name, 1 as id
+  union all
+  select ' John ' as first_name, ' Doe ' as last_name, 2 as id  -- Same names with extra spaces
+  union all
+  select 'Jane' as first_name, 'Smith' as last_name, 3 as id
+  
+),
+
+hashed_keys as (
+  
+  select 
+    id,
+    first_name,
+    last_name,
+    -- Without trim - different hashes for different spacing
+    {{ surrogate_key_trim.generate_surrogate_key(['first_name', 'last_name'], trim=false) }} as key_without_trim,
+    -- With trim - same hashes for logically same values
+    {{ surrogate_key_trim.generate_surrogate_key(['first_name', 'last_name'], trim=true) }} as key_with_trim
+  
+  from sample_data
+  
+)
+
+select * from hashed_keys
+```
 
 ## License
 
 MIT
+
+## Contributing
+
+Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
