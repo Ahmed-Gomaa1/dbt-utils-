@@ -1,13 +1,13 @@
--- Example test model demonstrating the use of the trim parameter
--- Users can adapt this for their own testing
+-- Test model demonstrating trim functionality
+-- Validates that trimming produces consistent hashes
 
-with sample_data as (
+with test_data as (
   
-  select 'John' as first_name, 'Doe' as last_name, 1 as id
+  select 'customer_123' as customer_id, 'US' as region, 1 as id
   union all
-  select ' John ' as first_name, ' Doe ' as last_name, 2 as id  -- Same names with extra spaces
+  select ' customer_123 ' as customer_id, ' US ' as region, 2 as id  -- Same data with spaces
   union all
-  select 'Jane' as first_name, 'Smith' as last_name, 3 as id
+  select 'customer_456' as customer_id, 'CA' as region, 3 as id
   
 ),
 
@@ -15,15 +15,25 @@ hashed_keys as (
   
   select 
     id,
-    first_name,
-    last_name,
-    -- Without trim - different hashes for different spacing
-    {{ dbt_utils.generate_surrogate_key(['first_name', 'last_name'], trim_whitespace=false) }} as key_without_trim,
-    -- With trim - same hashes for logically same values
-    {{ dbt_utils.generate_surrogate_key(['first_name', 'last_name'], trim_whitespace=true) }} as key_with_trim
+    customer_id,
+    region,
+    -- Without trim - different hashes for id 1 and 2
+    {{ dbt_utils.generate_surrogate_key(
+        ['customer_id', 'region'], 
+        trim_whitespace=false
+    ) }} as key_without_trim,
+    -- With trim - SAME hash for id 1 and 2
+    {{ dbt_utils.generate_surrogate_key(
+        ['customer_id', 'region'], 
+        trim_whitespace=true
+    ) }} as key_with_trim
   
-  from sample_data
+  from test_data
   
 )
 
 select * from hashed_keys
+
+-- To validate: 
+-- key_without_trim should be DIFFERENT for id 1 and 2
+-- key_with_trim should be IDENTICAL for id 1 and 2

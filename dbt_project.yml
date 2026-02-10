@@ -2,20 +2,17 @@ name: 'dbt_surrogate_key_utils'
 version: '1.0.0'
 config-version: 2
 
-# This setting configures which "profile" dbt uses for this project.
-profile: 'default'
-
-# Package metadata
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
-model-paths: ["models"]
-analysis-paths: ["analyses"]
-test-paths: ["tests"]
-seed-paths: ["seeds"]
-macro-paths: ["macros"]
-snapshot-paths: ["snapshots"]
+# CRITICAL: This makes your macro override dbt_utils
+dispatch:
+  - macro_namespace: dbt_utils
+    search_order: ['dbt_surrogate_key_utils', 'dbt_utils']
 
+model-paths: ["models"]
+macro-paths: ["macros"]
 target-path: "target"
+
 clean-targets:
   - "target"
   - "dbt_packages"

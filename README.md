@@ -1,131 +1,284 @@
-# Surrogate Key Trim
+# dbt Surrogate Key Utils
 
-A dbt package that extends the functionality of `dbt_utils.generate_surrogate_key` with a trim parameter.
+> Enhanced `generate_surrogate_key` with input consistency for parallel dbt pipelines
 
-## Overview
+[![dbt Version](https://img.shields.io/badge/dbt-%3E%3D1.0.0-orange.svg)](https://www.getdbt.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This package provides an enhanced version of the generate_surrogate_key macro that includes the ability to trim whitespace from input fields before hashing. This is particularly useful when dealing with data that may have inconsistent spacing but should be treated as identical values.
+## The Problem
+
+Modern dbt projects use hash-based surrogate keys to enable parallel builds:
+```sql
+-- Both build independently - no join needed!
+-- dim_customers.sql
+{{ dbt_utils.generate_surrogate_key(['customer_id']) }} as customer_sk
+
+-- fct_orders.sql
+{{ dbt_utils.generate_surrogate_key(['customer_id']) }} as customer_sk
+```
+
+**But input inconsistency breaks relationships silently:**
+```
+md5('customer_123')  → 'a7f3c2d1...'  ✅
+md5('customer_123 ') → 'x9z7k3m2...'  ❌ One space = different key!
+```
+
+## The Solution
+
+This package enhances `dbt_utils.generate_surrogate_key` with automatic input trimming:
+```sql
+{{ dbt_utils.generate_surrogate_key(
+    ['customer_id'],
+    trim_whitespace=true  -- ✨ New parameter
+) }}
+```
+
+✅ Consistency enforced at macro level  
+✅ No manual duplication across models  
+✅ Safe parallel pipelines by default  
+✅ Drop-in replacement for existing code  
+
+---
 
 ## Installation
 
-Include in your `packages.yml`:
-
+### Step 1: Add Both Packages
 ```yaml
+# packages.yml
 packages:
-  - git: "https://github.com/Ahmed-Gomaa1/dbt-utils-"
-    revision: main  # Or use a specific tag like v1.0.0
+  - package: dbt-labs/dbt_utils
+    version: 1.1.1
+  
+  - git: "https://github.com/Ahmed-Gomaa1/dbt-surrogate-key-utils"
+    revision: v1.0.0  # Use latest release tag
 ```
 
-Then run:
+### Step 2: Configure Dispatch
+```yaml
+# dbt_project.yml
+dispatch:
+  - macro_namespace: dbt_utils
+    search_order: ['dbt_surrogate_key_utils', 'dbt_utils']
+```
+
+### Step 3: Install
 ```bash
 dbt deps
 ```
 
+---
+
 ## Usage
 
-The package provides an enhanced version of `dbt_utils.generate_surrogate_key` macro with the following signature:
+### Drop-In Replacement
 
+**Use exactly like `dbt_utils.generate_surrogate_key`:**
 ```sql
-{{ dbt_utils.generate_surrogate_key(field_list, trim_whitespace=false) }}
+-- No changes needed to function name!
+{{ dbt_utils.generate_surrogate_key(
+    ['customer_id', 'region'],
+    trim_whitespace=true  -- Just add this parameter
+) }}
 ```
+
+### Before vs After
+
+**Before (manual trimming everywhere):**
+```sql
+-- dim_customers.sql
+{{ dbt_utils.generate_surrogate_key(["trim(customer_id)", "trim(region)"]) }}
+
+-- fct_orders.sql
+{{ dbt_utils.generate_surrogate_key(["trim(customer_id)", "trim(region)"]) }}
+
+-- fct_returns.sql
+{{ dbt_utils.generate_surrogate_key(["trim(customer_id)", "trim(region)"]) }}
+```
+
+**After (automatic trimming):**
+```sql
+-- Everywhere - guaranteed consistent
+{{ dbt_utils.generate_surrogate_key(
+    ['customer_id', 'region'],
+    trim_whitespace=true
+) }}
+```
+
+### Parallel Pipeline Example
+```sql
+-- models/dim_customers.sql
+select
+  {{ dbt_utils.generate_surrogate_key(
+      ['customer_id'],
+      trim_whitespace=true
+  ) }} as customer_sk,
+  customer_id,
+  customer_name
+from {{ ref('stg_customers') }}
+
+-- models/fct_orders.sql (builds in parallel!)
+select
+  {{ dbt_utils.generate_surrogate_key(
+      ['customer_id'],
+      trim_whitespace=true
+  ) }} as customer_sk,  -- Guaranteed to match!
+  order_date,
+  amount
+from {{ ref('stg_orders') }}
+```
+
+**Result:** Both models build independently, keys match perfectly.
+
+---
+
+## How It Works
+
+### Dispatch Pattern
+
+This package uses dbt's [dispatch pattern](https://docs.getdbt.com/reference/dbt-jinja-functions/adapter#dispatch) to override the `dbt_utils.generate_surrogate_key` macro.
+
+**When you call:**
+```sql
+{{ dbt_utils.generate_surrogate_key(['field']) }}
+```
+
+**dbt looks for the macro in this order:**
+1. `dbt_surrogate_key_utils` (this package) ← Found! Uses enhanced version
+2. `dbt_utils` (fallback) ← Not reached
+
+### What Gets Trimmed
+
+With `trim_whitespace=true`:
+
+| Input | After Trim | Same Hash? |
+|-------|------------|------------|
+| `'John'` | `'John'` | ✅ |
+| `'John '` | `'John'` | ✅ |
+| `' John'` | `'John'` | ✅ |
+| `' John '` | `'John'` | ✅ |
+
+Without trimming, all four would produce different surrogate keys!
+
+---
+
+## Configuration
 
 ### Parameters
 
-- `field_list` (required): A list of fields to be included in the surrogate key
-- `trim_whitespace` (optional, default: `false`): When set to `true`, trims leading and trailing whitespace from string fields before hashing. When `false`, preserves all whitespace in the input fields.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `field_list` | list | required | Fields to include in surrogate key |
+| `trim_whitespace` | boolean | `false` | Remove leading/trailing whitespace before hashing |
 
-### Example
+### Variables
 
-Basic usage (without trim):
-```sql
-{{ dbt_utils.generate_surrogate_key(['field_a', 'field_b']) }}
+Respects the same variables as `dbt_utils`:
+```yaml
+# dbt_project.yml
+vars:
+  surrogate_key_treat_nulls_as_empty_strings: true  # Optional
 ```
 
-Usage with trim enabled:
-```sql
-{{ dbt_utils.generate_surrogate_key(['field_a', 'field_b'], trim_whitespace=true) }}
-```
-
-When `trim_whitespace=true`, the macro will remove leading and trailing whitespace from string fields before generating the hash. This is useful when dealing with data that may have inconsistent spacing but should be treated as identical values.
-
-## Why Use This Package?
-
-When working with data that comes from various sources, it's common to encounter inconsistent spacing in string fields. For example:
-- `'John Doe'`
-- `'John Doe '` (trailing space)
-- `' John Doe'` (leading space)
-- `' John Doe '` (both leading and trailing spaces)
-
-Without trimming, these would generate different surrogate keys even though they represent the same logical value. This package solves that problem.
+---
 
 ## Backward Compatibility
 
-The package maintains full backward compatibility. When `trim=false` (the default), the behavior is identical to the original `dbt_utils.generate_surrogate_key` macro.
+**This package is 100% backward compatible:**
 
-## Configuration Variables
+- ✅ Default behavior (`trim_whitespace=false`) identical to original
+- ✅ All existing code works without changes
+- ✅ Only adds new optional parameter
+- ✅ No breaking changes
 
-This package respects the same configuration variable as the original:
-- `surrogate_key_treat_nulls_as_empty_strings`: When set to `true`, treats NULLs as empty strings instead of the default `_dbt_utils_surrogate_key_null_` string.
+**Migration is opt-in:**
+1. Install package
+2. Test with `trim_whitespace=true` in dev
+3. Roll out to production when ready
+4. Existing code continues working unchanged
 
-## Changelog
+---
 
-### [1.0.0] - 2026-02-10
+## Why Not a Fork?
 
-#### Added
-- Enhanced `generate_surrogate_key` macro with `trim` parameter
-- When `trim=true`, the macro removes leading and trailing whitespace from string fields before hashing
-- Maintains backward compatibility with `trim=false` (default behavior)
-- Comprehensive documentation and usage examples
-- Example test models for validation
+**This package enhances dbt_utils without replacing it:**
 
-#### Changed
-- Extended the original `dbt_utils.generate_surrogate_key` functionality
-- Preserved all original behavior when trim parameter is not used
+| Approach | Maintenance | Updates | Conflicts |
+|----------|-------------|---------|-----------|
+| **Fork** | Maintain all macros | Manual sync | High risk |
+| **This package** ✅ | One macro only | Automatic | No risk |
 
-#### Fixed
-- Proper handling of whitespace variations in input data
-- Consistent hashing for logically identical values with different spacing
+**Benefits:**
+- ✅ Get dbt_utils updates automatically
+- ✅ Only this macro is enhanced
+- ✅ Minimal maintenance burden
+- ✅ Works alongside official dbt_utils
 
-## Example Test Model
+---
 
-Here's an example of how to test the functionality:
+## Testing
 
+### Example Test
 ```sql
--- Example test model demonstrating the use of the trim parameter
--- Users can adapt this for their own testing
-
-with sample_data as (
-  
-  select 'John' as first_name, 'Doe' as last_name, 1 as id
+with test_data as (
+  select 'John' as name, 1 as id
   union all
-  select ' John ' as first_name, ' Doe ' as last_name, 2 as id  -- Same names with extra spaces
-  union all
-  select 'Jane' as first_name, 'Smith' as last_name, 3 as id
-  
-),
-
-hashed_keys as (
-  
-  select 
-    id,
-    first_name,
-    last_name,
-    -- Without trim - different hashes for different spacing
-    {{ surrogate_key_trim.generate_surrogate_key(['first_name', 'last_name'], trim=false) }} as key_without_trim,
-    -- With trim - same hashes for logically same values
-    {{ surrogate_key_trim.generate_surrogate_key(['first_name', 'last_name'], trim=true) }} as key_with_trim
-  
-  from sample_data
-  
+  select ' John ' as name, 2 as id  -- Same name, extra spaces
 )
 
-select * from hashed_keys
+select
+  id,
+  name,
+  {{ dbt_utils.generate_surrogate_key(['name'], trim_whitespace=false) }} as key_no_trim,
+  {{ dbt_utils.generate_surrogate_key(['name'], trim_whitespace=true) }} as key_with_trim
+from test_data
 ```
+
+**Expected results:**
+- `key_no_trim`: Different for id 1 and 2
+- `key_with_trim`: **Same** for id 1 and 2 ✅
+
+---
+
+## Origin Story
+
+This package started as [PR #1069](https://github.com/dbt-labs/dbt-utils/pull/1069) to dbt_utils.
+
+The maintainers suggested publishing as a standalone package, which allows:
+- ✅ Faster iteration and user feedback
+- ✅ Broader feature set beyond core scope
+- ✅ Immediate availability to teams who need it
+
+---
+
+## Requirements
+
+- dbt >= 1.0.0
+- dbt-utils >= 1.0.0
+
+---
+
+## Support
+
+- 🐛 [Open an issue](https://github.com/Ahmed-Gomaa1/dbt-surrogate-key-utils/issues)
+- 💬 dbt Slack: `@Ahmed-Gomaa1`
+- 📧 [Email](mailto:your-email@example.com)
+
+---
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE)
+
+---
 
 ## Contributing
 
-Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
+Contributions welcome! Please:
+1. Open an issue first to discuss changes
+2. Follow existing code style
+3. Add tests for new features
+4. Update documentation
+
+---
+
+**Made with ❤️ for the dbt community**
