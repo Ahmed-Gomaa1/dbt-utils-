@@ -1,0 +1,24 @@
+# dbt
+target/
+dbt_packages/
+logs/
+
+# Environment
+.venv/
+env/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets
+profiles.yml
+.secrets
+.env

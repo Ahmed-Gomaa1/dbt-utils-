@@ -12,8 +12,8 @@ Include in your `packages.yml`:
 
 ```yaml
 packages:
-  - git: "https://github.com/YOUR_USERNAME/dbt-surrogate-key-trim.git"
-    revision: v1.0.0  # Use the latest release tag
+  - git: "https://github.com/Ahmed-Gomaa1/dbt-utils-"
+    revision: main  # Or use a specific tag like v1.0.0
 ```
 
 Then run:
@@ -48,9 +48,28 @@ Usage with trim enabled:
 
 When `trim=true`, the macro will remove leading and trailing whitespace from string fields before generating the hash. This is useful when dealing with data that may have inconsistent spacing but should be treated as identical values.
 
-## Compatibility
+## Why Use This Package?
 
-This package is designed to work with dbt (data build tool) version 1.0.0 and later.
+When working with data that comes from various sources, it's common to encounter inconsistent spacing in string fields. For example:
+- `'John Doe'`
+- `'John Doe '` (trailing space)
+- `' John Doe'` (leading space)
+- `' John Doe '` (both leading and trailing spaces)
+
+Without trimming, these would generate different surrogate keys even though they represent the same logical value. This package solves that problem.
+
+## Backward Compatibility
+
+The package maintains full backward compatibility. When `trim=false` (the default), the behavior is identical to the original `dbt_utils.generate_surrogate_key` macro.
+
+## Configuration Variables
+
+This package respects the same configuration variable as the original:
+- `surrogate_key_treat_nulls_as_empty_strings`: When set to `true`, treats NULLs as empty strings instead of the default `_dbt_utils_surrogate_key_null_` string.
+
+## Contributing
+
+Feel free to open issues or submit pull requests if you find any problems or have suggestions for improvements.
 
 ## License
 
